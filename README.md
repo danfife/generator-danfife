@@ -13,7 +13,7 @@ npm install -g generator-danfife
 Then generate your new project:
 
 ```bash
-yo danfife
+yo danfife:website
 ```
 
 ## Getting To Know Yeoman
