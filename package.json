@@ -83,6 +83,9 @@
       "prettier"
     ]
   },
-  "repository": "danfife/generator-danfife",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/danfife/generator-danfife.git"
+  },
   "license": "MIT"
 }
