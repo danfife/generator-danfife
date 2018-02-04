@@ -7,7 +7,7 @@ describe('generator-danfife:website', () => {
   beforeAll(() => {
     return helpers
       .run(path.join(__dirname, '../generators/website'))
-      .withPrompts({ name: 'Test App' });
+      .withPrompts({ name: 'Test App', s3bucket: 'test-s3-bucket' });
   });
 
   it('creates files', () => {
@@ -16,5 +16,9 @@ describe('generator-danfife:website', () => {
 
   it('substitutes package name', () => {
     assert.fileContent('package.json', '"name": "Test App"');
+  });
+
+  it('substitutes s3bucket', () => {
+    assert.fileContent('package.json', '"s3bucket": "test-s3-bucket"');
   });
 });

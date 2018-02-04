@@ -48,6 +48,7 @@
   "scripts": {
     "prepublish": "nsp check",
     "pretest": "eslint .",
+    "eslint:fix": "eslint . --fix",
     "precommit": "lint-staged",
     "test": "jest"
   },

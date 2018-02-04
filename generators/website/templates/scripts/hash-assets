@@ -1,6 +1,8 @@
+#!/usr/bin/env node
+
 const ArgumentParser = require('argparse').ArgumentParser
 const Version = require("node-version-assets")
-const glob = require("glob")
+const { getFiles } = require("../js/utils.js")
 const _ = require("lodash")
 
 // Setup arguments
@@ -16,51 +18,32 @@ parser.addArgument([ '-u', '--cdnUrl' ], {
   help: 'the cdn url to append while rewriting files'
 })
 parser.addArgument([ '-s', '--silence' ], {
-  help: 'the cdn url to append while rewriting files',
+  help: 'silences output',
   action: 'storeTrue'
 })
 parser.addArgument([ '-f', '--hash' ], {
-  help: 'the files to hash'
+  help: 'the files to hash',
+  nargs: '+',
+  defaultValue: ["**/*.!(html)"]
 })
 parser.addArgument([ '-r', '--rewrite' ], {
-  help: 'the files to rewrite matching files with their hashed filenames'
+  help: 'the files to rewrite matching files with their hashed filenames',
+  nargs: '+',
+  defaultValue: ["**/*.{css,html}"]
 })
 
 // Parse arguments
-const args = parser.parseArgs(),
-			{path: relativePath, cdnUrl: cdnUrlPath, silence} = args,
-			hashedFileGlobs = args.hash.split(' '),
-			rewriteFileGlobs = args.rewrite.split(' ')
+const {
+	hash: hashedFileGlobs,
+	rewrite: rewriteFileGlobs,
+	path: relativePath,
+	cdnUrl,
+	silence
+} = parser.parseArgs()
 
 // Change working directory
 if (relativePath) {
-	process.chdir(`${process.cwd()}/${relativePath}`);
-}
-
-function getFiles(fileGlobs) {
-	const fileSet = new Set(),
-				promises = []
-
-	fileGlobs.forEach(fileGlob => {
-		const promise = new Promise((resolve, reject) => {
-			glob(fileGlob, (er, files) => {
-				if (er) {
-					reject(er)
-					return
-				}
-				files.forEach(file => fileSet.add(file))
-				resolve()
-			})
-		})
-
-		promises.push(promise)
-	})
-
-	return new Promise((resolve, reject) =>
-			Promise.all(promises)
-					.then(() => resolve(Array.from(fileSet)))
-					.catch(error => reject(error))
-	)
+	process.chdir(`${process.cwd()}/${relativePath}`)
 }
 
 Promise.all([getFiles(hashedFileGlobs), getFiles(rewriteFileGlobs)]).then(data => {
@@ -72,13 +55,13 @@ Promise.all([getFiles(hashedFileGlobs), getFiles(rewriteFileGlobs)]).then(data =
 	new Version({
 		assets: hashOnlyFiles,
 		grepFiles: rewriteFiles,
-		cdnPath: cdnUrlPath,
+		cdnPath: cdnUrl,
 		silence: silence
 	}).run(function() {
 		new Version({
 			assets: hashAndRewriteFiles,
 			grepFiles: rewriteOnlyFiles,
-			cdnPath: cdnUrlPath,
+			cdnPath: cdnUrl,
 			silence: silence
 		}).run()	
 	})

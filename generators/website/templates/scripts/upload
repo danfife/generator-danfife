@@ -1,0 +1,125 @@
+#!/usr/bin/env node
+
+const ArgumentParser = require('argparse').ArgumentParser
+const AWS = require('aws-sdk/global')
+const S3 = require('aws-sdk/clients/s3')
+const async = require('async')
+const fs = require('fs')
+var path = require('path')
+const { getFiles } = require("../js/utils.js")
+
+// Setup arguments
+const parser = new ArgumentParser({
+  version: '1.0.0',
+  addHelp: true,
+  description: 'Deploy to S3'
+})
+parser.addArgument([ '-b', '--bucket-name' ], {
+  help: 'the bucket name to deploy to',
+  required: true
+})
+parser.addArgument([ '-f', '--files' ], {
+  help: 'the files to upload',
+  defaultValue: ['**/*.*'],
+  nargs: '+'
+})
+parser.addArgument([ '-p', '--path' ], {
+  help: 'the relative path from the cwd',
+})
+parser.addArgument([ '-r', '--region' ], {
+  help: 'the aws region',
+  defaultValue: 'us-west-1'
+})
+parser.addArgument([ '-s', '--silence' ], {
+  help: 'silences output',
+  action: 'storeTrue'
+})
+
+// Parse args
+const {
+	bucket_name: bucketName,
+	path: relativePath,
+	region,
+	files,
+	silence
+} = parser.parseArgs()
+const fileOptions = relativePath ? {cwd: `${process.cwd()}/${relativePath}`} : {}
+
+// Set the region 
+AWS.config.update({region})
+
+const s3 = new S3({ apiVersion: '2006-03-01'})
+
+function logError() {
+	if (!silence) {
+		console.error.apply(this, arguments);
+	}
+}
+
+function logInfo() {
+	if (!silence) {
+		console.log.apply(this, arguments);
+	}
+}
+
+function ensureBucket() {
+	return new Promise((resolve, reject) => {
+		s3.listBuckets(function(err, data) {
+		  if (err) {
+	      logError('Error attempting to list buckets', err)
+	      reject(err)
+	      return
+		  }
+	  	
+		  // Resolve now if bucket exists
+	  	if (data.Buckets.filter(bucket => bucket.Name === bucketName).length) {
+	  		resolve()
+	  		return
+	  	}
+			
+			// Call S3 to create the bucket
+			s3.createBucket({Bucket: bucketName}, function(err, data) {
+			   if (err) {
+			      logError(`Error while attempting to create ${bucketName}`, err)
+			      reject(err)
+			      return
+			   }
+			   logInfo(`Created bucket ${bucketName}`)
+			   resolve()
+			})
+		})
+	})
+}
+
+ensureBucket().then(() => {
+	getFiles(files, fileOptions).then(files => {
+		files.forEach(file => uploadFile(file))
+	})
+})
+
+function uploadFile(file) {
+	const actualFile = relativePath ? path.join(relativePath, file) : file
+
+	// Ignore anything that is not a file
+	if (!fs.lstatSync(actualFile).isFile()) {
+		return
+	}
+
+	const params = {
+		Bucket: bucketName,
+		Key: file,
+		Body: fs.createReadStream(actualFile)
+	}
+
+	params.Body.on('error', function(err) {
+	  logError('Error reading file', err);
+	})
+
+	s3.upload(params, function(err, data) {
+	  if (err) {
+	    logError(`Error uploading file ${file}`, err);
+	    return
+	  }
+	  logInfo(`Uploaded: ${file}`, data.Location);
+	})
+}

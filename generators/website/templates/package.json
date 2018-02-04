@@ -3,35 +3,41 @@
   "version": "0.0.0",
   "description": "",
   "main": "",
+  "config": {
+    "s3bucket": "<%= s3bucket %>"
+  },  
   "scripts": {
     "test": "karma start --single-run",
     "watch:test": "karma start",
-    "assets": "node scripts/assets.js -s -f \"**/*.{css,js} images/**/*.*\" -r \"**/*.{css,html}\"",
     "clean": "rimraf dist/* dist .tmp/* .tmp -s",
-    "build": "npm run clean -s && npm run dev:build -s && npm run prod:build -s",
+    "build": "npm run clean -s && run-p -s dev:build prod:build",
     "dev": "npm run dev:build -s && run-p -s dev:open dev:server dev:watch:build dev:livereload watch:test",
-    "dev:build": "npm run dev:build:assets -s && rimraf dist/dev/* -s && copyup .tmp/dev/* .tmp/dev/**/* dist && rimraf .tmp/dev/*",
-    "dev:build:assets": "rimraf .tmp/dev/* -s && npm run dev:build:static -s && npm run dev:build:js -s && npm run dev:build:css -s && npm run assets -s -- -p .tmp/dev",
-    "dev:build:js": "browserify -d public/js/main.js > .tmp/dev/main.js",
-    "dev:build:css": "node-sass --output-style expanded public/scss/main.scss > .tmp/dev/main.css",
-    "dev:build:static": "copyup public/**/*.{html,png,jpg} .tmp/dev",
+    "dev:build": "npm run dev:build:assets -s && rimraf dist/dev/* -s && copyup \".tmp/dev/**/*.*\" dist && rimraf .tmp/dev/*",
+    "dev:build:assets": "rimraf .tmp/dev/* -s && run-p -s dev:build:static dev:build:js dev:build:sass && npm run _hash -s -- -p .tmp/dev",
+    "dev:build:js": "browserify -d public/js/main.js -o .tmp/dev/main.js",
+    "dev:build:sass": "node-sass -q --output-style expanded -o .tmp/dev public/scss/main.scss",
+    "dev:build:static": "npm run _copy:static -- .tmp/dev",
     "dev:server": "http-server -s -p 8080 dist/dev",
     "dev:open": "opener http://localhost:8080/index.html",
     "dev:watch:build": "nodemon -q -w public/ --ext \".\" --exec \"npm run dev:build\"",
     "dev:livereload": "livereload dist/dev -w 200",
-    "prod:build": "rimraf dist/prod/* -s && npm run prod:build:assets -s && npm run assets -s -- -p dist/prod -u \"https://cdn2.com\"",
-    "prod:build:assets": "npm run prod:build:static -s && npm run prod:build:js -s && npm run prod:build:css -s",
-    "prod:build:js": "browserify -t uglifyify -o dist/prod/main.js ./public/js/main.js",
-    "prod:build:css": "node-sass --output-style compact public/scss/main.scss > dist/prod/main.css",
-    "prod:build:static": "copyup public/**/*.{html,png,jpg} dist/prod"
+    "prod:build": "npm run prod:build:assets -s && npm run _hash -s -- -p dist/prod -u \"https://cdn2.com\"",
+    "prod:build:assets": "rimraf dist/prod/* -s && run-p -s prod:build:static prod:build:js prod:build:sass",
+    "prod:build:js": "browserify -t uglifyify -d public/js/main.js -o dist/prod/main.js",
+    "prod:build:sass": "node-sass -q --output-style compact -o dist/prod public/scss/main.scss",
+    "prod:build:static": "npm run _copy:static -- dist/prod",
+    "prod:deploy": "npm run prod:build -s && npm run _upload -s -- -b $npm_package_config_s3bucket -p dist/prod",
+    "_hash": "scripts/hash-assets -s",
+    "_upload": "AWS_PROFILE=s3-deploy scripts/upload -s",
+    "_copy:static": "copyup \"public/**/*.!(js|scss)\""
   },
   "keywords": [],
   "author": "daniel.fife@gmail.com",
   "license": "MIT",
-  "dependencies": {
-  },
+  "dependencies": {},
   "devDependencies": {
     "argparse": "^1.0.9",
+    "aws-sdk": "^2.188.0",
     "browserify": "^15.2.0",
     "chai": "^4.1.2",
     "copyfiles": "^1.2.0",
@@ -53,6 +59,7 @@
     "npm-run-all": "^4.1.2",
     "opener": "^1.4.3",
     "rimraf": "^2.6.2",
+    "uglifyify": "^4.0.5",
     "watchify": "^3.10.0"
   }
 }

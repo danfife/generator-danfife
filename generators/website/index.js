@@ -12,13 +12,20 @@ module.exports = class extends Generator {
       yosay('Welcome to the shining ' + chalk.red('generator-danfife') + ' generator!')
     );
 
+    const folderName = path.basename(this.destinationRoot());
+
     const prompts = [
       {
         type: 'input',
         name: 'name',
-        message: 'Your project name',
-        // Defaults to the project's folder name if the input is skipped
-        default: path.basename(this.destinationRoot())
+        message: 'Project name',
+        default: folderName
+      },
+      {
+        type: 'input',
+        name: 's3bucket',
+        message: 'S3 bucket name',
+        default: folderName
       }
     ];
 
@@ -28,7 +35,10 @@ module.exports = class extends Generator {
   }
 
   writing() {
-    const context = { name: this.props.name };
+    const context = {
+      name: this.props.name,
+      s3bucket: this.props.s3bucket
+    };
     const copyOptions = { globOptions: { dot: true } };
 
     this.fs.copyTpl(
